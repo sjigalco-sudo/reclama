@@ -1,7 +1,3 @@
-Понял, подправляем формат. Теперь в файле будет только чистое время и список файлов в одну строку без лишних слов «Заставка» и дефисов.
-
-Обновленный код для app.py:
-Python
 import streamlit as st
 import pandas as pd
 from datetime import timedelta, datetime, time
