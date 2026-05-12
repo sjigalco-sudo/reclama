@@ -1,10 +1,14 @@
+Понял, подправляем формат. Теперь в файле будет только чистое время и список файлов в одну строку без лишних слов «Заставка» и дефисов.
+
+Обновленный код для app.py:
+Python
 import streamlit as st
 import pandas as pd
 from datetime import timedelta, datetime, time
 import io
 
 st.set_page_config(page_title="Global24 Playlist Gen", page_icon="📄")
-st.title("📄 Генератор текстового плейлиста")
+st.title("📄 Генератор плейлиста TXT")
 
 def format_time(x):
     if isinstance(x, (datetime, time)):
@@ -18,53 +22,52 @@ uploaded_file = st.file_uploader("Загрузите Excel файл", type=["xls
 
 if uploaded_file:
     try:
-        # Читаем Excel, пропуская первые 6 строк (как в оригинале)
         df = pd.read_excel(uploaded_file, skiprows=6)
         
-        # Столбцы: 2 (Время блока), 6 (Название ролика), 9 (ID)
-        # Индексы: [2, 6, 9]
+        # Столбцы: Время блока (2), Название ролика (6), ID (9)
         df_res = df.iloc[:, [2, 6, 9]].copy()
         df_res.columns = ['Block_Time', 'Name', 'ID']
         
-        # Заполняем пустое время вниз
         df_res['Block_Time'] = df_res['Block_Time'].ffill()
-        
-        # Убираем строки без названия или ID
         df_res = df_res.dropna(subset=['Name', 'ID'])
         
-        # Группируем по времени блока
         grouped = df_res.groupby('Block_Time', sort=False)
         
-        # Формируем текст
         output = io.StringIO()
         
         for i, (block_time, items) in enumerate(grouped, 1):
             time_str = format_time(block_time)
-            pub_num = ((i - 1) % 5) + 1 # Логика чередования заставок 1-5
+            pub_num = ((i - 1) % 5) + 1 
             
-            output.write(f"=== БЛОК {time_str} ===\n")
-            output.write(f"Заставка IN: PIBLICITATE {pub_num} IN.mp4\n")
+            # Начинаем строку со времени блока
+            line_parts = [time_str]
             
+            # Добавляем входную заставку
+            line_parts.append(f"PIBLICITATE {pub_num} IN.mp4")
+            
+            # Добавляем ролики
             for _, row in items.iterrows():
                 id_val = str(row['ID']).split('.')[0]
                 name_val = str(row['Name']).strip()
-                # Если в названии нет расширения, добавим .mov
                 ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                output.write(f"  - {id_val}_{name_val}{ext}\n")
-                
-            output.write(f"Заставка OUT: PIBLICITATE {pub_num} OUT.mp4\n")
-            output.write("\n") # Пробел между блоками
+                line_parts.append(f"{id_val}_{name_val}{ext}")
+            
+            # Добавляем выходную заставку
+            line_parts.append(f"PIBLICITATE {pub_num} OUT.mp4")
+            
+            # Собираем всё в одну строку через пробел (или запятую, если нужно)
+            output.write(" ".join(line_parts) + "\n")
             
         final_text = output.getvalue()
         
-        st.text_area("Предпросмотр файла:", final_text, height=400)
+        st.text_area("Предпросмотр (в одну строку):", final_text, height=400)
         
         st.download_button(
             label="📥 Скачать плейлист (.txt)",
             data=final_text,
-            file_name=f"Playlist_{datetime.now().strftime('%d_%m')}.txt",
+            file_name=f"Playlist_{datetime.now().strftime('%H_%M')}.txt",
             mime="text/plain"
         )
         
     except Exception as e:
-        st.error(f"Произошла ошибка при обработке: {e}")
+        st.error(f"Ошибка: {e}")
