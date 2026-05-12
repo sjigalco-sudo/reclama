@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock Binary", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Бинарная копия)")
+st.set_page_config(page_title="Global24 SLBlock Final", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (Байтовый режим)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -43,11 +43,13 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # Собираем строку через список байтов (CRLF = \r\n)
-                # ВАЖНО: Никаких лишних пробелов, строго по образцу
+                # Собираем файл как одну сплошную строку БЕЗ лишних символов
                 content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
+                
+                # Заставка IN
                 content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n'
                 
+                # Ролики
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
                     name_val = str(row['Name']).strip()
@@ -55,26 +57,26 @@ if uploaded_file:
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
                     content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
                 
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />'
-                content += '</slblock>'
+                # Заставка OUT и СРАЗУ закрывающий тег без пробела и переноса
+                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" /></slblock>'
                 
                 filename = f"{time_str}_{base_name}.slblock"
                 
-                # Кодируем строго в Windows-1251 БЕЗ записи метаданных Python
-                raw_bytes = content.encode('windows-1251', errors='replace')
-                
-                # Записываем байты напрямую в архив
+                # Записываем строго в cp1251 без BOM (сигнатуры)
+                raw_bytes = content.encode('cp1251')
                 zip_file.writestr(filename, raw_bytes)
         
         st.success(f"Готово! Блоков: {len(grouped)}")
         st.download_button(
-            label="📥 Скачать SLBLOCK (Binary-Safe)",
+            label="📥 Скачать SLBLOCK (Final Byte-Match)",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_Binary_{base_name}.zip",
-            mime="application/zip"
+            file_name=f"SLBlocks_Final_{base_name}.zip"
         )
         
-        st.info("Файл создан в бинарном режиме Windows-1251 без BOM.")
+        # Сравнение хвоста файла
+        st.divider()
+        st.write("Хвост файла (сравните с оригиналом):")
+        st.code(content[-70:])
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
