@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock Hex-Match", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Точная копия байтов)")
+st.set_page_config(page_title="Global24 AIR Generator", page_icon="📺")
+st.title("📺 Генератор AIR-расписания")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -18,7 +18,7 @@ def format_time_for_name(x):
         return str(timedelta(seconds=total_seconds)).replace(':', '-').zfill(8)
     return str(x).replace(':', '-')
 
-uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader("Загрузите Excel файл", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
@@ -39,37 +39,41 @@ if uploaded_file:
                 time_str = format_time_for_name(block_time)
                 pub_num = ((i - 1) % 5) + 1 
                 
-                dur_in = 5.980
-                dur_out = 6.580
-                total_block_sec = dur_in + items['Dur'].sum() + dur_out
+                # Формируем структуру AIR файла
+                # Формат: movie "путь_к_файлу"
+                air_lines = []
                 
-                # Формируем контент. CRLF (\r\n) обязателен.
-                # СТРОГО: Тег version 2 без пробелов в конце строки.
-                content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
+                # Добавляем заставку IN
+                air_lines.append(f'movie "{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4"')
                 
-                # Добавляем элементы
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n'
-                
+                # Добавляем ролики рекламы
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
                     name_val = str(row['Name']).strip()
-                    dur_val = float(row['Dur'])
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                    content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
+                    
+                    full_path = f"{BASE_PATH}\\{id_val}_{name_val}{ext}"
+                    air_lines.append(f'movie "{full_path}"')
                 
-                # Последний элемент и закрывающий тег БЕЗ переноса между ними
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" /></slblock>'
+                # Добавляем заставку OUT
+                air_lines.append(f'movie "{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4"')
                 
-                filename = f"{time_str}_{base_name}.slblock"
+                # Соединяем строки и кодируем в Windows-1251 (важно для кириллицы)
+                content = "\r\n".join(air_lines)
+                filename = f"{time_str}_{base_name}.air"
                 
-                # Превращаем в байты Windows-1251 (ANSI)
-                # errors='ignore' уберет невидимый мусор, если он попал из Excel
-                raw_bytes = content.encode('windows-1251', errors='ignore')
-                
-                zip_file.writestr(filename, raw_bytes)
+                zip_file.writestr(filename, content.encode('windows-1251'))
         
-        st.success(f"Готово! Блоков: {len(grouped)}")
-        st.download_button(label="📥 Скачать SLBLOCK", data=zip_buffer.getvalue(), file_name=f"SLBlocks_{base_name}.zip")
+        st.success(f"Готово! Создано {len(grouped)} AIR-файлов.")
+        st.download_button(
+            label="📥 Скачать AIR-файлы",
+            data=zip_buffer.getvalue(),
+            file_name=f"AIR_Schedules_{base_name}.zip"
+        )
+        
+        st.divider()
+        st.write("**Пример содержания AIR-файла:**")
+        st.code(content)
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
