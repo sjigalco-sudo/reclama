@@ -5,7 +5,7 @@ import io
 import os
 
 st.set_page_config(page_title="Global24 TXT Generator", page_icon="📝")
-st.title("📝 Генератор плейлиста (Имя из Excel)")
+st.title("📝 Генератор плейлиста (Слитно в кавычках)")
 
 def format_time(x):
     if isinstance(x, (datetime, time)):
@@ -19,7 +19,7 @@ uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"
 
 if uploaded_file:
     try:
-        # Получаем имя исходного файла без расширения
+        # Имя файла из исходника
         base_name = os.path.splitext(uploaded_file.name)[0]
         new_filename = f"{base_name}.txt"
 
@@ -40,10 +40,10 @@ if uploaded_file:
             time_str = format_time(block_time)
             pub_num = ((i - 1) % 5) + 1 
             
-            # Записываем время
+            # 1. Время
             output.write(f"{time_str}\n")
             
-            # Формируем список файлов в кавычках
+            # 2. Формируем элементы в кавычках
             line_elements = []
             line_elements.append(f'"PIBLICITATE {pub_num} IN.mp4"')
             
@@ -55,13 +55,13 @@ if uploaded_file:
             
             line_elements.append(f'"PIBLICITATE {pub_num} OUT.mp4"')
             
-            # Записываем строку с файлами и добавляем отступ
-            output.write(" ".join(line_elements) + "\n\n")
+            # 3. Соединяем БЕЗ пробела
+            output.write("".join(line_elements) + "\n\n")
             
         final_text = output.getvalue()
         
-        st.subheader(f"Результат для файла: {new_filename}")
-        st.text_area("Предпросмотр:", final_text, height=300)
+        st.subheader(f"Результат: {new_filename}")
+        st.text_area("Предпросмотр (без пробелов между кавычками):", final_text, height=300)
         
         st.download_button(
             label=f"📥 Скачать {new_filename}",
