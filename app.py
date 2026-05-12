@@ -1,55 +1,61 @@
-
 import streamlit as st
 import pandas as pd
 import io
+from datetime import timedelta
 
 st.set_page_config(page_title="Global24 Converter", page_icon="📊")
 
-st.title("📊 Конвертер отчетов GLOBAL24")
-st.markdown("---")
-st.info("Загрузите ваш файл .xls, чтобы объединить ID и названия ролика.")
+st.title("📊 Конвертер GLOBAL24")
+st.info("Конвертация Excel в формат для эфирной сетки")
 
-uploaded_file = st.file_uploader("Выберите файл .xls или .xlsx", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader("Выберите файл .xls", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
-        # Читаем файл
+        # Читаем Excel
         df = pd.read_excel(uploaded_file, skiprows=6)
         
-        if df.shape[1] < 10:
-            st.error("В файле недостаточно столбцов. Проверьте формат.")
-        else:
-            # Выбираем время (2), название (6) и ID (9)
-            df_processed = df.iloc[:, [2, 6, 9]].copy()
-            df_processed.columns = ['Время', 'Название', 'ID']
+        # Индексы: 2 - время блока, 6 - название ролика, 9 - ID
+        df_res = df.iloc[:, [2, 6, 9]].copy()
+        df_res.columns = ['Время_Excel', 'Название', 'ID']
 
-            # Протягиваем время вниз
-            df_processed['Время'] = df_processed['Время'].ffill()
+        # 1. Протягиваем время блока вниз на ролики
+        df_res['Время_Excel'] = df_res['Время_Excel'].ffill()
 
-            # Убираем строки без названия
-            df_processed = df_processed.dropna(subset=['Название'])
+        # 2. Убираем строки, где нет названия ролика
+        df_res = df_res.dropna(subset=['Название'])
 
-            # Форматируем ID (убираем .0)
-            df_processed['ID'] = pd.to_numeric(df_processed['ID'], errors='coerce').fillna(0).astype(int).astype(str)
+        # 3. Конвертируем дробное число Excel в формат ЧЧ:ММ:СС
+        def convert_time(x):
+            try:
+                if pd.isna(x): return ""
+                seconds = int(round(x * 86400))
+                return str(timedelta(seconds=seconds))
+            except:
+                return str(x)
 
-            # Склеиваем ID и Название
-            df_processed['Результат'] = df_processed['ID'] + ' ' + df_processed['Название'].astype(str)
+        df_res['Время'] = df_res['Время_Excel'].apply(convert_time)
 
-            final_table = df_processed[['Время', 'Результат']]
+        # 4. Чистим ID и склеиваем с названием
+        df_res['ID'] = pd.to_numeric(df_res['ID'], errors='coerce').fillna(0).astype(int).astype(str)
+        df_res['Результат'] = df_res['ID'] + ' ' + df_res['Название'].astype(str)
 
-            st.subheader("Результат:")
-            st.dataframe(final_table, use_container_width=True)
+        # Финальный результат
+        final_table = df_res[['Время', 'Результат']]
 
-            # Готовим CSV
-            csv_buffer = io.StringIO()
-            final_table.to_csv(csv_buffer, index=False, sep=';', encoding='utf-8-sig')
-            
-            st.download_button(
-                label="📥 Скачать готовый CSV",
-                data=csv_buffer.getvalue(),
-                file_name=f"Processed_{uploaded_file.name.split('.')[0]}.csv",
-                mime="text/csv"
-            )
+        st.subheader("Предпросмотр:")
+        st.dataframe(final_table, use_container_width=True)
+
+        # Скачивание
+        csv_buffer = io.StringIO()
+        final_table.to_csv(csv_buffer, index=False, sep=';', encoding='utf-8-sig')
+        
+        st.download_button(
+            label="📥 Скачать готовый CSV",
+            data=csv_buffer.getvalue(),
+            file_name=f"Ready_{uploaded_file.name.split('.')[0]}.csv",
+            mime="text/csv"
+        )
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
