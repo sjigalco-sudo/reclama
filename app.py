@@ -5,14 +5,12 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Forward AIR Generator", page_icon="📺")
-st.title("📺 Генератор AIR-файлов")
+st.set_page_config(page_title="Global24 SLBlock UTF16", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (Кодировка UTF-16LE)")
 
-# Путь к папке с видео
 BASE_PATH = r"I:\RECLAMA 2026"
 
 def format_time_only(x):
-    """Форматирует время для названия файла (ЧЧ-ММ-СС)"""
     if isinstance(x, (datetime, time)):
         return x.strftime('%H-%M-%S')
     if isinstance(x, (int, float)):
@@ -20,14 +18,11 @@ def format_time_only(x):
         return str(timedelta(seconds=total_seconds)).replace(':', '-').zfill(8)
     return str(x).replace(':', '-')
 
-uploaded_file = st.file_uploader("Загрузите Excel файл рекламы", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
-        # Чтение данных (пропускаем техническую шапку Excel)
         df = pd.read_excel(uploaded_file, skiprows=6)
-        
-        # Столбцы: Время (2), Название (6), Длительность (7), ID (9)
         df_res = df.iloc[:, [2, 6, 7, 9]].copy()
         df_res.columns = ['Block_Time', 'Name', 'Dur', 'ID']
         df_res['Block_Time'] = df_res['Block_Time'].ffill()
@@ -39,47 +34,45 @@ if uploaded_file:
         
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
             for i, (block_time, items) in enumerate(grouped, 1):
-                # Название файла = Время выхода
                 time_filename = format_time_only(block_time)
-                # Номер заставки (цикл от 1 до 5)
                 pub_num = ((i - 1) % 5) + 1 
                 
-                air_lines = []
+                # Считаем общую длительность (хотя мы забили на точность длины, 
+                # атрибут Sec в заголовке XML всё равно должен быть)
+                total_block_sec = 5.980 + items['Dur'].sum() + 6.580
                 
-                # 1. Заставка IN (без кавычек)
-                air_lines.append(f"movie {BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4")
+                # Собираем структуру (версия 2)
+                lines = []
+                lines.append(f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2')
                 
-                # 2. Ролики из Excel
+                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />')
+                
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
                     name_val = str(row['Name']).strip()
-                    # Проверка расширения (добавляем .mov если нет другого)
+                    dur_val = float(row['Dur'])
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                    
-                    full_path = f"{BASE_PATH}\\{id_val}_{name_val}{ext}"
-                    air_lines.append(f"movie {full_path}")
+                    lines.append(f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
                 
-                # 3. Заставка OUT (без кавычек)
-                air_lines.append(f"movie {BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4")
+                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="6.580" />')
+                lines.append('</slblock>')
                 
-                # Сборка текста и кодировка Windows-1251 (стандарт Forward)
-                content = "\r\n".join(air_lines)
+                content = "\r\n".join(lines)
                 
-                # Сохраняем файл в корень архива
-                zip_file.writestr(f"{time_filename}.air", content.encode('windows-1251'))
+                # ВАЖНО: Используем 'utf-16' (он автоматически добавит BOM FF FE в начало)
+                # Это создаст файл в кодировке UTF-16 Little Endian
+                raw_bytes = content.encode('utf-16')
+                
+                zip_file.writestr(f"{time_filename}.slblock", raw_bytes)
         
-        st.success(f"Готово! Подготовлено {len(grouped)} AIR-файлов.")
+        st.success(f"Готово! Сгенерировано {len(grouped)} файлов в UTF-16LE.")
         st.download_button(
-            label="📥 Скачать архив .air файлов",
+            label="📥 Скачать SLBLOCK (UTF-16LE)",
             data=zip_buffer.getvalue(),
-            file_name=f"Forward_AIR_Schedules.zip",
-            mime="application/zip"
+            file_name=f"SLBlocks_UTF16LE.zip"
         )
         
-        # Превью последнего блока для контроля
-        st.divider()
-        st.write(f"**Пример структуры файла ({time_filename}.air):**")
-        st.code(content)
+        st.info("Теперь каждый файл начинается с байтов FF FE (BOM), что сообщает Форварду о кодировке UTF-16 Little Endian.")
 
     except Exception as e:
-        st.error(f"Произошла ошибка: {e}")
+        st.error(f"Ошибка: {e}")
