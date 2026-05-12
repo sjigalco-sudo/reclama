@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock Fix", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Binary Match)")
+st.set_page_config(page_title="Global24 SLBlock XML3", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (Версия XML 3)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -18,7 +18,6 @@ def format_time_for_name(x):
         return str(timedelta(seconds=total_seconds)).replace(':', '-').zfill(8)
     return str(x).replace(':', '-')
 
-# Функция для безопасной вставки текста в XML (экранирование &, <, >)
 def xml_escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&apos;")
 
@@ -47,47 +46,46 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # Собираем файл строго по байтам
-                # Используем \r\n (Windows) и кодировку Windows-1251
+                # СТРУКТУРА XML 3
+                # В версии 3 обязателен заголовок и кодировка
+                lines = []
+                lines.append('<?xml version="1.0" encoding="windows-1251"?>')
+                # В версии 3 указывается version="3"
+                header = f'<slblock version="3" Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">'
+                lines.append(header)
                 
-                # 1. Заголовок
-                content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
+                # Элементы
+                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />')
                 
-                # 2. Входная заставка
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n'
-                
-                # 3. Ролики
                 for _, row in items.iterrows():
                     id_val = xml_escape(str(row['ID']).split('.')[0])
                     name_val = xml_escape(str(row['Name']).strip())
                     dur_val = float(row['Dur'])
-                    
-                    # Проверка расширения
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
                     
-                    content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
+                    lines.append(f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
                 
-                # 4. Выходная заставка и закрывающий тег БЕЗ переноса между ними
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" /></slblock>'
+                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />')
+                lines.append('</slblock>')
                 
+                # Склеиваем с правильными переносами
+                content = "\r\n".join(lines)
                 filename = f"{time_str}_{base_name}.slblock"
                 
-                # КОДИРОВАНИЕ: 
-                # Мы не используем стандартный utf-8. 
-                # Мы используем Windows-1251 (кириллица), так как Forward чаще всего работает на ней.
-                # Также это гарантирует отсутствие BOM.
-                raw_bytes = content.encode('cp1251', errors='replace')
-                
+                # Кодируем в windows-1251
+                raw_bytes = content.encode('windows-1251', errors='replace')
                 zip_file.writestr(filename, raw_bytes)
         
-        st.success(f"Готово! Блоков: {len(grouped)}")
+        st.success(f"Готово! Создано {len(grouped)} блоков для XML 3")
         st.download_button(
-            label="📥 Скачать SLBLOCK (Binary-Safe)",
+            label="📥 Скачать SLBLOCK (Версия 3)",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_N4_{base_name}.zip"
+            file_name=f"SLBlocks_V3_{base_name}.zip"
         )
-
-        st.info("В этой версии исправлено экранирование спецсимволов и принудительно установлена кодировка CP1251 без BOM.")
+        
+        st.divider()
+        st.write("**Предпросмотр формата XML 3:**")
+        st.code(content, language='xml')
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
