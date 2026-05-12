@@ -6,7 +6,7 @@ import os
 from datetime import timedelta, datetime, time
 
 st.set_page_config(page_title="Global24 SLBlock Precision", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Точная копия формата)")
+st.title("🎬 Генератор SLBlock (Байт-в-байт)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -43,12 +43,13 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # СТРОИМ СТРОКУ БЕЗ ЛИШНИХ ПРОБЕЛОВ
+                # Собираем контент по кусочкам, чтобы контролировать каждый символ
+                parts = []
                 # Заголовок
-                content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
+                parts.append(f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n')
                 
                 # Входная заставка
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n'
+                parts.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n')
                 
                 # Ролики
                 for _, row in items.iterrows():
@@ -56,33 +57,33 @@ if uploaded_file:
                     name_val = str(row['Name']).strip()
                     dur_val = float(row['Dur'])
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                    
-                    content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
+                    parts.append(f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n')
                 
-                # Выходная заставка (ВАЖНО: тут нет переноса строки в конце!)
-                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />'
+                # Выходная заставка
+                parts.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />')
                 
-                # Закрывающий тег приклеен к последнему item
-                content += '</slblock>'
+                # СТРОГО: Приклеиваем закрывающий тег без переноса
+                parts.append('</slblock>')
                 
+                final_string = "".join(parts)
                 filename = f"{time_str}_{base_name}.slblock"
                 
-                # Кодируем в Windows-1251
-                encoded_data = content.encode('cp1251', errors='replace')
+                # Кодируем в CP1251 (Windows-1251)
+                encoded_data = final_string.encode('cp1251', errors='replace')
                 zip_file.writestr(filename, encoded_data)
         
-        st.success(f"Готово! Создано {len(grouped)} блоков.")
+        st.success(f"Готово! Блоков: {len(grouped)}")
         st.download_button(
-            label="📥 Скачать финальный архив (.zip)",
+            label="📥 Скачать SLBLOCK (Точная копия)",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_Final_{base_name}.zip",
+            file_name=f"Fixed_SLBlocks_{base_name}.zip",
             mime="application/zip"
         )
         
-        # Визуальная проверка
+        # Сравнение структуры в превью
         st.divider()
-        st.write("Последние символы файла (должно быть `/> </slblock>` без лишних строк):")
-        st.code(content[-50:])
+        st.write("Последние 60 символов (должно быть `/> </slblock>` в одну строку):")
+        st.text(final_string[-60:])
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
