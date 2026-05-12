@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock Final", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Байтовый режим)")
+st.set_page_config(page_title="Global24 SLBlock Fix", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (Binary Match)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -17,6 +17,10 @@ def format_time_for_name(x):
         total_seconds = int(round(x * 86400))
         return str(timedelta(seconds=total_seconds)).replace(':', '-').zfill(8)
     return str(x).replace(':', '-')
+
+# Функция для безопасной вставки текста в XML (экранирование &, <, >)
+def xml_escape(text):
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&apos;")
 
 uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"])
 
@@ -43,40 +47,47 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # Собираем файл как одну сплошную строку БЕЗ лишних символов
+                # Собираем файл строго по байтам
+                # Используем \r\n (Windows) и кодировку Windows-1251
+                
+                # 1. Заголовок
                 content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
                 
-                # Заставка IN
+                # 2. Входная заставка
                 content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n'
                 
-                # Ролики
+                # 3. Ролики
                 for _, row in items.iterrows():
-                    id_val = str(row['ID']).split('.')[0]
-                    name_val = str(row['Name']).strip()
+                    id_val = xml_escape(str(row['ID']).split('.')[0])
+                    name_val = xml_escape(str(row['Name']).strip())
                     dur_val = float(row['Dur'])
+                    
+                    # Проверка расширения
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
+                    
                     content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
                 
-                # Заставка OUT и СРАЗУ закрывающий тег без пробела и переноса
+                # 4. Выходная заставка и закрывающий тег БЕЗ переноса между ними
                 content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" /></slblock>'
                 
                 filename = f"{time_str}_{base_name}.slblock"
                 
-                # Записываем строго в cp1251 без BOM (сигнатуры)
-                raw_bytes = content.encode('cp1251')
+                # КОДИРОВАНИЕ: 
+                # Мы не используем стандартный utf-8. 
+                # Мы используем Windows-1251 (кириллица), так как Forward чаще всего работает на ней.
+                # Также это гарантирует отсутствие BOM.
+                raw_bytes = content.encode('cp1251', errors='replace')
+                
                 zip_file.writestr(filename, raw_bytes)
         
         st.success(f"Готово! Блоков: {len(grouped)}")
         st.download_button(
-            label="📥 Скачать SLBLOCK (Final Byte-Match)",
+            label="📥 Скачать SLBLOCK (Binary-Safe)",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_Final_{base_name}.zip"
+            file_name=f"SLBlocks_N4_{base_name}.zip"
         )
-        
-        # Сравнение хвоста файла
-        st.divider()
-        st.write("Хвост файла (сравните с оригиналом):")
-        st.code(content[-70:])
+
+        st.info("В этой версии исправлено экранирование спецсимволов и принудительно установлена кодировка CP1251 без BOM.")
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
