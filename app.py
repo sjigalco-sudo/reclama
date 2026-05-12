@@ -18,7 +18,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📺 GLOBAL 24: ГЕНЕРАТОР РАСПИСАНИЯ")
+st.title("📺 GLOBAL 24: генерация рекламных блоков")
 st.subheader("Формат: SLBlock (Global 24) | Кодировка: UTF-16LE")
 
 # Константа пути
