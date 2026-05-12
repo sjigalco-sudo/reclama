@@ -6,9 +6,9 @@ import os
 from datetime import timedelta, datetime, time
 
 st.set_page_config(page_title="Global24 SLBlock Generator", page_icon="🎬")
-st.title("🎬 Генератор SLBlock для Global 24")
+st.title("🎬 Генератор SLBlock (Версия 2.0)")
 
-# Константа пути (можно менять здесь)
+# Путь к папке с рекламой 
 BASE_PATH = r"I:\RECLAMA 2026"
 
 def format_time_for_name(x):
@@ -26,7 +26,6 @@ if uploaded_file:
         base_name = os.path.splitext(uploaded_file.name)[0]
         df = pd.read_excel(uploaded_file, skiprows=6)
         
-        # Столбцы: Время (2), Название (6), Длительность (7), ID (9)
         df_res = df.iloc[:, [2, 6, 7, 9]].copy()
         df_res.columns = ['Block_Time', 'Name', 'Dur', 'ID']
         df_res['Block_Time'] = df_res['Block_Time'].ffill()
@@ -34,7 +33,6 @@ if uploaded_file:
         
         grouped = df_res.groupby('Block_Time', sort=False)
         
-        # Создаем архив в памяти
         zip_buffer = io.BytesIO()
         
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -42,48 +40,48 @@ if uploaded_file:
                 time_str = format_time_for_name(block_time)
                 pub_num = ((i - 1) % 5) + 1 
                 
-                # Собираем XML структуру slblock
-                xml_lines = []
-                xml_lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-                xml_lines.append('<slblock Source="list" Type="accurate" Sec="0.000" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2')
+                # Константы длительности заставок 
+                dur_in = 5.980
+                dur_out = 6.580
                 
-                # 1. Входная заставка
-                xml_lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />')
+                # Считаем общую длительность блока (Sec) 
+                total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # 2. Ролики из блока
+                # Собираем XML строго по вашему образцу 
+                xml_content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\n'
+                
+                # Добавляем заставку IN 
+                xml_content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\n'
+                
+                # Добавляем ролики 
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
                     name_val = str(row['Name']).strip()
                     dur_val = float(row['Dur'])
-                    # Проверка расширения
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
                     
-                    file_path = f"{BASE_PATH}\\{id_val}_{name_val}{ext}"
-                    xml_lines.append(f'  <item file="{file_path}" in="0.000" dur="{dur_val:.3f}" />')
+                    xml_content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\n'
                 
-                # 3. Выходная заставка
-                xml_lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="6.580" />')
-                xml_lines.append('</slblock>')
+                # Добавляем заставку OUT 
+                xml_content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />'
+                xml_content += '</slblock>'
                 
-                slblock_content = "\n".join(xml_lines)
-                
-                # Имя файла: Время_НазваниеExcel.slblock
+                # Имя файла в архиве
                 filename = f"{time_str}_{base_name}.slblock"
-                zip_file.writestr(filename, slblock_content.encode('utf-8'))
+                zip_file.writestr(filename, xml_content.encode('utf-8'))
         
-        st.success(f"Архив готов! Сгенерировано блоков: {len(grouped)}")
-        
+        st.success(f"Готово! Создано {len(grouped)} блоков.")
         st.download_button(
-            label=f"📥 Скачать архив блоков (.zip)",
+            label="📥 Скачать архив .slblock",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_{base_name}.zip",
+            file_name=f"Global24_Blocks_{base_name}.zip",
             mime="application/zip"
         )
         
-        # Предпросмотр кода одного из файлов
+        # Предпросмотр первого блока для сверки с вашим образцом 
         st.divider()
-        st.write("**Пример структуры внутри .slblock:**")
-        st.code(slblock_content, language='xml')
+        st.write("**Сгенерированный XML (сравните с вашим оригиналом):**")
+        st.code(xml_content, language='xml')
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
