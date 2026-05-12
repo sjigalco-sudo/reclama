@@ -3,8 +3,8 @@ import pandas as pd
 from datetime import timedelta, datetime, time
 import io
 
-st.set_page_config(page_title="Global24 Playlist Gen", page_icon="📄")
-st.title("📄 Генератор плейлиста TXT")
+st.set_page_config(page_title="Global24 TXT Generator", page_icon="📝")
+st.title("📝 Генератор плейлиста (Время + перенос)")
 
 def format_time(x):
     if isinstance(x, (datetime, time)):
@@ -14,13 +14,13 @@ def format_time(x):
         return str(timedelta(seconds=total_seconds)).zfill(8)
     return str(x)
 
-uploaded_file = st.file_uploader("Загрузите Excel файл", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file, skiprows=6)
         
-        # Столбцы: Время блока (2), Название ролика (6), ID (9)
+        # Столбцы: Время (2), Название (6), ID (9)
         df_res = df.iloc[:, [2, 6, 9]].copy()
         df_res.columns = ['Block_Time', 'Name', 'ID']
         
@@ -35,35 +35,39 @@ if uploaded_file:
             time_str = format_time(block_time)
             pub_num = ((i - 1) % 5) + 1 
             
-            # Начинаем строку со времени блока
-            line_parts = [time_str]
+            # Записываем время и переносим строку
+            output.write(f"{time_str}\n")
             
-            # Добавляем входную заставку
-            line_parts.append(f"PIBLICITATE {pub_num} IN.mp4")
+            # Формируем список файлов в кавычках
+            line_elements = []
+            
+            # Добавляем IN
+            line_elements.append(f'"PIBLICITATE {pub_num} IN.mp4"')
             
             # Добавляем ролики
             for _, row in items.iterrows():
                 id_val = str(row['ID']).split('.')[0]
                 name_val = str(row['Name']).strip()
                 ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                line_parts.append(f"{id_val}_{name_val}{ext}")
+                line_elements.append(f'"{id_val}_{name_val}{ext}"')
             
-            # Добавляем выходную заставку
-            line_parts.append(f"PIBLICITATE {pub_num} OUT.mp4")
+            # Добавляем OUT
+            line_elements.append(f'"PIBLICITATE {pub_num} OUT.mp4"')
             
-            # Собираем всё в одну строку через пробел (или запятую, если нужно)
-            output.write(" ".join(line_parts) + "\n")
+            # Записываем все файлы в одну строку под временем
+            output.write(" ".join(line_elements) + "\n\n") # Двойной перенос для отделения блоков
             
         final_text = output.getvalue()
         
-        st.text_area("Предпросмотр (в одну строку):", final_text, height=400)
+        st.subheader("Результат:")
+        st.text_area("Готовый текст:", final_text, height=400)
         
         st.download_button(
-            label="📥 Скачать плейлист (.txt)",
+            label="📥 Скачать плейлист .txt",
             data=final_text,
-            file_name=f"Playlist_{datetime.now().strftime('%H_%M')}.txt",
+            file_name=f"Playlist_{datetime.now().strftime('%H%M')}.txt",
             mime="text/plain"
         )
         
     except Exception as e:
-        st.error(f"Ошибка: {e}")
+        st.error(f"Ошибка при обработке: {e}")
