@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 AIR Generator", page_icon="📺")
-st.title("📺 Генератор AIR-расписания")
+st.set_page_config(page_title="Global24 AIR/TXT Generator", page_icon="📺")
+st.title("📺 Генератор расписания (Без кавычек)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -18,7 +18,7 @@ def format_time_for_name(x):
         return str(timedelta(seconds=total_seconds)).replace(':', '-').zfill(8)
     return str(x).replace(':', '-')
 
-uploaded_file = st.file_uploader("Загрузите Excel файл", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
@@ -39,41 +39,44 @@ if uploaded_file:
                 time_str = format_time_for_name(block_time)
                 pub_num = ((i - 1) % 5) + 1 
                 
-                # Формируем структуру AIR файла
-                # Формат: movie "путь_к_файлу"
-                air_lines = []
+                # Собираем два вида файлов для теста
+                air_lines = [] # Формат: movie путь
+                txt_lines = [] # Формат: просто путь
                 
-                # Добавляем заставку IN
-                air_lines.append(f'movie "{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4"')
+                # Добавляем ролики (IN -> Реклама -> OUT)
+                all_paths = []
+                all_paths.append(f"{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4")
                 
-                # Добавляем ролики рекламы
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
                     name_val = str(row['Name']).strip()
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                    
-                    full_path = f"{BASE_PATH}\\{id_val}_{name_val}{ext}"
-                    air_lines.append(f'movie "{full_path}"')
+                    all_paths.append(f"{BASE_PATH}\\{id_val}_{name_val}{ext}")
                 
-                # Добавляем заставку OUT
-                air_lines.append(f'movie "{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4"')
+                all_paths.append(f"{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4")
                 
-                # Соединяем строки и кодируем в Windows-1251 (важно для кириллицы)
-                content = "\r\n".join(air_lines)
-                filename = f"{time_str}_{base_name}.air"
+                for p in all_paths:
+                    air_lines.append(f"movie {p}") # БЕЗ КАВЫЧЕК
+                    txt_lines.append(p)            # ПРОСТО ПУТЬ
                 
-                zip_file.writestr(filename, content.encode('windows-1251'))
+                # Сохраняем AIR версию
+                air_content = "\r\n".join(air_lines)
+                zip_file.writestr(f"AIR/{time_str}.air", air_content.encode('windows-1251'))
+                
+                # Сохраняем TXT версию (иногда OnAir ест их через 'Load List')
+                txt_content = "\r\n".join(txt_lines)
+                zip_file.writestr(f"TXT/{time_str}.txt", txt_content.encode('windows-1251'))
         
-        st.success(f"Готово! Создано {len(grouped)} AIR-файлов.")
+        st.success(f"Готово! Создано {len(grouped)} блоков в двух форматах.")
         st.download_button(
-            label="📥 Скачать AIR-файлы",
+            label="📥 Скачать архивы (AIR и TXT)",
             data=zip_buffer.getvalue(),
-            file_name=f"AIR_Schedules_{base_name}.zip"
+            file_name=f"Forward_Schedules_{base_name}.zip"
         )
         
         st.divider()
-        st.write("**Пример содержания AIR-файла:**")
-        st.code(content)
+        st.write("**Пример файла (без кавычек):**")
+        st.code(air_content)
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
