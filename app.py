@@ -6,9 +6,8 @@ import os
 from datetime import timedelta, datetime, time
 
 st.set_page_config(page_title="Global24 SLBlock Generator", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Версия 2.0)")
+st.title("🎬 Генератор SLBlock (Исправленный формат)")
 
-# Путь к папке с рекламой 
 BASE_PATH = r"I:\RECLAMA 2026"
 
 def format_time_for_name(x):
@@ -40,47 +39,47 @@ if uploaded_file:
                 time_str = format_time_for_name(block_time)
                 pub_num = ((i - 1) % 5) + 1 
                 
-                # Константы длительности заставок 
                 dur_in = 5.980
                 dur_out = 6.580
-                
-                # Считаем общую длительность блока (Sec) 
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # Собираем XML строго по вашему образцу 
-                xml_content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\n'
+                # Формируем структуру ТОЧНО как в вашем файле (без <?xml?>)
+                # Используем \r\n для совместимости с Windows
+                lines = []
+                header = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2'
+                lines.append(header)
                 
-                # Добавляем заставку IN 
-                xml_content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\n'
+                # Добавляем элементы
+                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />')
                 
-                # Добавляем ролики 
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
                     name_val = str(row['Name']).strip()
                     dur_val = float(row['Dur'])
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
                     
-                    xml_content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\n'
+                    lines.append(f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
                 
-                # Добавляем заставку OUT 
-                xml_content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />'
-                xml_content += '</slblock>'
+                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />')
+                lines.append('</slblock>')
                 
-                # Имя файла в архиве
+                # Соединяем через Windows-перенос строки
+                xml_content = "\r\n".join(lines)
+                
                 filename = f"{time_str}_{base_name}.slblock"
+                # Записываем в UTF-8 без BOM, как в оригинале
                 zip_file.writestr(filename, xml_content.encode('utf-8'))
         
-        st.success(f"Готово! Создано {len(grouped)} блоков.")
+        st.success(f"Готово! Блоков: {len(grouped)}")
         st.download_button(
-            label="📥 Скачать архив .slblock",
+            label="📥 Скачать архив SLBLOCK",
             data=zip_buffer.getvalue(),
-            file_name=f"Global24_Blocks_{base_name}.zip",
+            file_name=f"SLBlocks_{base_name}.zip",
             mime="application/zip"
         )
         
-        # Предпросмотр первого блока для сверки с вашим образцом 
         st.divider()
-        st.write("**Сгенерированный XML (сравните с вашим оригиналом):**")
+        st.write("**Проверка структуры (должна быть 1-в-1 как в образце):**")
         st.code(xml_content, language='xml')
 
     except Exception as e:
