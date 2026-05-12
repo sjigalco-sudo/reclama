@@ -19,7 +19,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.title("📺 GLOBAL 24: ГЕНЕРАТОР РАСПИСАНИЯ")
-st.subheader("Формат: SLBlock (N4) | Кодировка: UTF-16LE | Имена: ЧЧ-ММ")
+st.subheader("Формат: SLBlock (Global 24) | Кодировка: UTF-16LE | Имена: ЧЧ-ММ")
 
 # Константа пути
 BASE_PATH = r"I:\RECLAMA 2026"
