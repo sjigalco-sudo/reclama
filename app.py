@@ -1,11 +1,14 @@
 import streamlit as st
 import pandas as pd
-from datetime import timedelta, datetime, time
 import io
+import zipfile
 import os
+from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 TXT Generator", page_icon="📝")
-st.title("📝 Генератор плейлиста ")
+st.set_page_config(page_title="Global24 SLBlock XML3", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (XML3)")
+
+BASE_PATH = "I:\\RECLAMA 2026\\"
 
 def format_time(x):
     if isinstance(x, (datetime, time)):
@@ -19,55 +22,58 @@ uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"
 
 if uploaded_file:
     try:
-        # Имя файла из исходника
+        # Имя для архива и базовое имя файлов
         base_name = os.path.splitext(uploaded_file.name)[0]
-        new_filename = f"{base_name}.txt"
-
+        
         df = pd.read_excel(uploaded_file, skiprows=6)
-        
-        # Столбцы: Время (2), Название (6), ID (9)
-        df_res = df.iloc[:, [2, 6, 9]].copy()
-        df_res.columns = ['Block_Time', 'Name', 'ID']
-        
+        df_res = df.iloc[:, [2, 6, 7, 9]].copy()
+        df_res.columns = ['Block_Time', 'Name', 'Dur', 'ID']
         df_res['Block_Time'] = df_res['Block_Time'].ffill()
         df_res = df_res.dropna(subset=['Name', 'ID'])
         
         grouped = df_res.groupby('Block_Time', sort=False)
         
-        output = io.StringIO()
+        zip_buffer = io.BytesIO()
         
-        for i, (block_time, items) in enumerate(grouped, 1):
-            time_str = format_time(block_time)
-            pub_num = ((i - 1) % 5) + 1 
-            
-            # 1. Время
-            output.write(f"{time_str}\n")
-            
-            # 2. Формируем элементы в кавычках
-            line_elements = []
-            line_elements.append(f'"PIBLICITATE {pub_num} IN.mp4"')
-            
-            for _, row in items.iterrows():
-                id_val = str(row['ID']).split('.')[0]
-                name_val = str(row['Name']).strip()
-                ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                line_elements.append(f'"{id_val}_{name_val}{ext}"')
-            
-            line_elements.append(f'"PIBLICITATE {pub_num} OUT.mp4"')
-            
-            # 3. Соединяем БЕЗ пробела
-            output.write("".join(line_elements) + "\n\n")
-            
-        final_text = output.getvalue()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+            for i, (block_time, items) in enumerate(grouped, 1):
+                time_str = format_time(block_time).replace(':', '-')
+                pub_num = ((i - 1) % 5) + 1 
+                
+                # Собираем содержимое SLBlock (XML структура)
+                # Мы используем Type="accurate", но Forward сам пересчитает Sec при открытии
+                lines = []
+                lines.append('<slblock Source="list" Type="accurate" Sec="0.000" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2')
+                
+                # Входная заставка
+                lines.append(f'  <item file="{BASE_PATH}PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />')
+                
+                # Ролики
+                for _, row in items.iterrows():
+                    id_val = str(row['ID']).split('.')[0]
+                    name_val = str(row['Name']).strip()
+                    dur_val = float(row['Dur'])
+                    ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
+                    
+                    # Формируем строку как в вашем примере ""
+                    lines.append(f'  <item file="{BASE_PATH}{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
+                
+                # Выходная заставка
+                lines.append(f'  <item file="{BASE_PATH}PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="6.580" />')
+                lines.append('</slblock>')
+                
+                slblock_content = "\r\n".join(lines)
+                
+                # Имя файла внутри архива: Время_ИмяExcel.slblock
+                file_in_zip = f"{time_str}_{base_name}.slblock"
+                zip_file.writestr(file_in_zip, slblock_content.encode('utf-8'))
         
-        st.subheader(f"Результат: {new_filename}")
-        st.text_area("Предпросмотр (без пробелов между кавычками):", final_text, height=300)
-        
+        st.success(f"Готово! Создан архив с SLBlock файлами.")
         st.download_button(
-            label=f"📥 Скачать {new_filename}",
-            data=final_text,
-            file_name=new_filename,
-            mime="text/plain"
+            label=f"📥 Скачать архив {base_name}.zip",
+            data=zip_buffer.getvalue(),
+            file_name=f"{base_name}_SLBlocks.zip",
+            mime="application/zip"
         )
         
     except Exception as e:
