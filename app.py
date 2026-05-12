@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock Generator", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Исправленный формат)")
+st.set_page_config(page_title="Global24 SLBlock Fix", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (Final Fix)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -18,7 +18,7 @@ def format_time_for_name(x):
         return str(timedelta(seconds=total_seconds)).replace(':', '-').zfill(8)
     return str(x).replace(':', '-')
 
-uploaded_file = st.file_uploader("Загрузите Excel файл", type=["xls", "xlsx"])
+uploaded_file = st.file_uploader("Загрузите Excel", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
@@ -43,14 +43,12 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # Формируем структуру ТОЧНО как в вашем файле (без <?xml?>)
-                # Используем \r\n для совместимости с Windows
-                lines = []
-                header = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2'
-                lines.append(header)
+                # Собираем файл строго по структуре вашего образца
+                # Первая строка - заголовок без отступа
+                content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
                 
-                # Добавляем элементы
-                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />')
+                # Добавляем элементы с отступом в 2 пробела и \r\n
+                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />\r\n'
                 
                 for _, row in items.iterrows():
                     id_val = str(row['ID']).split('.')[0]
@@ -58,29 +56,27 @@ if uploaded_file:
                     dur_val = float(row['Dur'])
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
                     
-                    lines.append(f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
+                    content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
                 
-                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />')
-                lines.append('</slblock>')
-                
-                # Соединяем через Windows-перенос строки
-                xml_content = "\r\n".join(lines)
+                content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />'
+                content += '</slblock>' # Тег закрывается без переноса перед ним
                 
                 filename = f"{time_str}_{base_name}.slblock"
-                # Записываем в UTF-8 без BOM, как в оригинале
-                zip_file.writestr(filename, xml_content.encode('utf-8'))
+                
+                # Важно: используем кодировку utf-8 без сигнатуры BOM
+                zip_file.writestr(filename, content.encode('utf-8'))
         
-        st.success(f"Готово! Блоков: {len(grouped)}")
+        st.success(f"Готово! Создано блоков: {len(grouped)}")
         st.download_button(
-            label="📥 Скачать архив SLBLOCK",
+            label="📥 Скачать SLBLOCK (Версия 3.0)",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_{base_name}.zip",
+            file_name=f"SLBlocks_Fixed_{base_name}.zip",
             mime="application/zip"
         )
         
         st.divider()
-        st.write("**Проверка структуры (должна быть 1-в-1 как в образце):**")
-        st.code(xml_content, language='xml')
+        st.write("**Код для проверки:**")
+        st.code(content, language='xml')
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
