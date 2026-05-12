@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock XML3", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Версия XML 3)")
+st.set_page_config(page_title="Global24 SLBlock V3", page_icon="🎬")
+st.title("🎬 Генератор SLBlock для Forward 5.10.x")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -46,16 +46,12 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # СТРУКТУРА XML 3
-                # В версии 3 обязателен заголовок и кодировка
-                lines = []
-                lines.append('<?xml version="1.0" encoding="windows-1251"?>')
-                # В версии 3 указывается version="3"
-                header = f'<slblock version="3" Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">'
-                lines.append(header)
-                
-                # Элементы
-                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />')
+                # Формируем валидный XML версии 3
+                xml_lines = [
+                    '<?xml version="1.0" encoding="windows-1251"?>',
+                    f'<slblock version="3" Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">',
+                    f'  <item file="{xml_escape(BASE_PATH)}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{dur_in:.3f}" />'
+                ]
                 
                 for _, row in items.iterrows():
                     id_val = xml_escape(str(row['ID']).split('.')[0])
@@ -63,28 +59,28 @@ if uploaded_file:
                     dur_val = float(row['Dur'])
                     ext = "" if any(name_val.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
                     
-                    lines.append(f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
+                    xml_lines.append(f'  <item file="{xml_escape(BASE_PATH)}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />')
                 
-                lines.append(f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />')
-                lines.append('</slblock>')
+                xml_lines.append(f'  <item file="{xml_escape(BASE_PATH)}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />')
+                xml_lines.append('</slblock>')
                 
-                # Склеиваем с правильными переносами
-                content = "\r\n".join(lines)
+                # Сборка контента с правильными переносами CRLF
+                content = "\r\n".join(xml_lines)
                 filename = f"{time_str}_{base_name}.slblock"
                 
-                # Кодируем в windows-1251
+                # Кодирование в Windows-1251 (критично для кириллицы в путях)
                 raw_bytes = content.encode('windows-1251', errors='replace')
                 zip_file.writestr(filename, raw_bytes)
         
-        st.success(f"Готово! Создано {len(grouped)} блоков для XML 3")
+        st.success(f"Готово! Создано {len(grouped)} блоков для версии OnAir 3.9.x")
         st.download_button(
-            label="📥 Скачать SLBLOCK (Версия 3)",
+            label="📥 Скачать SLBLOCK (V3 Format)",
             data=zip_buffer.getvalue(),
             file_name=f"SLBlocks_V3_{base_name}.zip"
         )
         
         st.divider()
-        st.write("**Предпросмотр формата XML 3:**")
+        st.write("**Как выглядит структура V3:**")
         st.code(content, language='xml')
 
     except Exception as e:
