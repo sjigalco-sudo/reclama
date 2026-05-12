@@ -5,8 +5,8 @@ import zipfile
 import os
 from datetime import timedelta, datetime, time
 
-st.set_page_config(page_title="Global24 SLBlock Fix", page_icon="🎬")
-st.title("🎬 Генератор SLBlock (Fix Windows-1251)")
+st.set_page_config(page_title="Global24 SLBlock Precision", page_icon="🎬")
+st.title("🎬 Генератор SLBlock (Точная копия формата)")
 
 BASE_PATH = r"I:\RECLAMA 2026"
 
@@ -43,8 +43,8 @@ if uploaded_file:
                 dur_out = 6.580
                 total_block_sec = dur_in + items['Dur'].sum() + dur_out
                 
-                # Формируем контент ТОЧНО по вашему сниппету
-                # Обратите внимание на отсутствие переноса строки перед </slblock>
+                # СТРОИМ СТРОКУ БЕЗ ЛИШНИХ ПРОБЕЛОВ
+                # Заголовок
                 content = f'<slblock Source="list" Type="accurate" Sec="{total_block_sec:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2\r\n'
                 
                 # Входная заставка
@@ -59,26 +59,30 @@ if uploaded_file:
                     
                     content += f'  <item file="{BASE_PATH}\\{id_val}_{name_val}{ext}" in="0.000" dur="{dur_val:.3f}" />\r\n'
                 
-                # Выходная заставка
+                # Выходная заставка (ВАЖНО: тут нет переноса строки в конце!)
                 content += f'  <item file="{BASE_PATH}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{dur_out:.3f}" />'
+                
+                # Закрывающий тег приклеен к последнему item
                 content += '</slblock>'
                 
                 filename = f"{time_str}_{base_name}.slblock"
                 
-                # КОДИРОВКА: Используем windows-1251 (CP1251) для совместимости с Forward
-                encoded_content = content.encode('windows-1251', errors='replace')
-                zip_file.writestr(filename, encoded_content)
+                # Кодируем в Windows-1251
+                encoded_data = content.encode('cp1251', errors='replace')
+                zip_file.writestr(filename, encoded_data)
         
-        st.success(f"Готово! Блоков: {len(grouped)}")
+        st.success(f"Готово! Создано {len(grouped)} блоков.")
         st.download_button(
-            label="📥 Скачать SLBLOCK (CP1251)",
+            label="📥 Скачать финальный архив (.zip)",
             data=zip_buffer.getvalue(),
-            file_name=f"SLBlocks_N4_{base_name}.zip",
+            file_name=f"SLBlocks_Final_{base_name}.zip",
             mime="application/zip"
         )
         
+        # Визуальная проверка
         st.divider()
-        st.info("Файл закодирован в Windows-1251. Это должно решить проблему с форматом в OnAir.")
+        st.write("Последние символы файла (должно быть `/> </slblock>` без лишних строк):")
+        st.code(content[-50:])
 
     except Exception as e:
         st.error(f"Ошибка: {e}")
