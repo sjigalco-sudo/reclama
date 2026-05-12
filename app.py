@@ -5,7 +5,7 @@ import io
 import os
 
 st.set_page_config(page_title="Global24 TXT Generator", page_icon="📝")
-st.title("📝 Генератор плейлиста (Слитно в кавычках)")
+st.title("📝 Генератор плейлиста ")
 
 def format_time(x):
     if isinstance(x, (datetime, time)):
