@@ -13,7 +13,6 @@ PATH_TOPSHOP = r"I:\TOPSHOP"
 TS_FILE = "teleshopping1.mp4"
 TS_DUR = 7.600
 LOGO_PATH = "Global 24 Logo TV.png"
-LOGO_WIDTH = 150  # Ширина логотипа в сайдбаре в пикселях
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def extract_date_info(text):
@@ -59,7 +58,7 @@ if not st.session_state['auth_global']:
             st.error("Неверный пароль")
     st.stop()
 
-# --- ВЕРХНЯЯ ЧАСТЬ СТРАНИЦЫ (ЦЕНТРАЛЬНЫЙ ЛОГО + ЗАГОЛОВОК) ---
+# --- ВЕРХНЯЯ ЧАСТЬ СТРАНИЦЫ (ЛОГОТИП ТОЛЬКО ТУТ) ---
 if os.path.exists(LOGO_PATH):
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
@@ -67,12 +66,8 @@ if os.path.exists(LOGO_PATH):
 
 st.markdown("<h1 style='text-align: center;'>🌐 GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР</h1>", unsafe_allow_html=True)
 
-# --- SIDEBAR (БОКОВАЯ ПАНЕЛЬ) ---
+# --- SIDEBAR (ТОЛЬКО НАСТРОЙКИ) ---
 with st.sidebar:
-    if os.path.exists(LOGO_PATH):
-        # Используем фиксированную ширину, чтобы логотип был меньше
-        st.image(LOGO_PATH, width=LOGO_WIDTH)
-    
     st.header("⚙️ Настройки")
     ad_type = st.radio("Тип рекламы:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
     
@@ -119,6 +114,7 @@ if uploaded_file:
                         if current_block_items and t_obj:
                             dt1 = datetime.combine(datetime.today(), current_block_items[-1]['time'])
                             dt2 = datetime.combine(datetime.today(), t_obj)
+                            # Разрыв > 6 минут — новый файл
                             if (dt2 - dt1).total_seconds() > 360:
                                 start_time_str = format_time_filename(current_block_items[0]['time'])
                                 f_name = f"{current_date_prefix}_{start_time_str}.slblock"
