@@ -6,7 +6,7 @@ import os
 from datetime import timedelta, datetime, time
 
 # --- КОНСТАНТЫ И НАСТРОЙКИ ---
-PASSWORD = "Global_Admin_2026"
+PASSWORD = "SJ"
 FIXED_PATH = r"I:\RECLAMA 2026"  # Путь зафиксирован
 
 st.set_page_config(page_title="Global 24 | Generator", page_icon="🌐", layout="wide")
