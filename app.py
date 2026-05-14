@@ -6,11 +6,10 @@ import os
 from datetime import timedelta, datetime, time
 
 # Пароль для Global 24
-PASSWORD = "SJ_Admin"
+PASSWORD = "Global_Admin_2026"
 
 st.set_page_config(page_title="Global 24 | Generator", page_icon="🌐", layout="wide")
 
-# Авторизация
 if 'auth_global' not in st.session_state:
     st.session_state['auth_global'] = False
 
@@ -25,18 +24,9 @@ if not st.session_state['auth_global']:
             st.error("Неверно")
     st.stop()
 
-# Стиль Global 24 (Синий)
-st.markdown('''
-    <style>
-    .stButton>button { background-color: #1E3A8A; color: white; }
-    .stDownloadButton>button { background-color: #10B981; color: white; }
-    h1 { color: #1E3A8A; border-bottom: 2px solid #1E3A8A; }
-    </style>
-    ''', unsafe_allow_html=True)
-
 st.title("🌐 GLOBAL 24: ГЕНЕРАТОР ЭФИРА")
 
-# --- Функции форматирования ---
+# --- Функции ---
 def format_time_hh_mm(x):
     if isinstance(x, (datetime, time)): return x.strftime('%H-%M')
     if isinstance(x, (int, float)):
@@ -47,11 +37,24 @@ def format_time_hh_mm(x):
 def xml_escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-# --- Настройки в Sidebar ---
+# --- Sidebar ---
 with st.sidebar:
     st.header("⚙️ Настройки")
     user_path = st.text_input("Путь к видео (Global):", value=r"I:\RECLAMA 2026")
+    
+    st.divider()
+    st.subheader("📁 Настройка расширений")
+    # Поле для ввода ID через запятую
+    mp4_input = st.text_area("ID для формата .mp4 (через запятую):", 
+                             value="6856, 6857",
+                             help="Введите ID роликов, которые имеют расширение .mp4")
+    
+    # Превращаем строку в список чистых ID
+    mp4_ids = [x.strip() for x in mp4_input.split(",") if x.strip()]
+    
+    st.divider()
     uploaded_file = st.file_uploader("Загрузить медиа-план", type=["xls", "xlsx"])
+    
     if st.button("Выход"):
         st.session_state['auth_global'] = False
         st.rerun()
@@ -72,9 +75,7 @@ if uploaded_file:
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
             for i, (block_time, items) in enumerate(grouped, 1):
                 time_filename = format_time_hh_mm(block_time)
-                pub_num = ((i - 1) % 5) + 1 # Чередуем заставки 1-5
-                
-                # Считаем длительность: Вход(5.98) + Ролики + Выход(6.58)
+                pub_num = ((i - 1) % 5) + 1
                 total_dur = 5.980 + items['Dur'].sum() + 6.580
                 
                 xml_lines = [
@@ -85,8 +86,17 @@ if uploaded_file:
                 for _, row in items.iterrows():
                     id_clean = str(row['ID']).split(".")[0]
                     nm = str(row['Name']).strip()
-                    ext = "" if any(nm.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']) else ".mov"
-                    # Формат Global 24: ID_Название
+                    
+                    # 1. Проверяем, нет ли расширения уже в Excel
+                    if any(nm.lower().endswith(e) for e in ['.mov', '.mp4', '.tga', '.mpg']):
+                        ext = ""
+                    # 2. Если ID в списке исключений — ставим .mp4
+                    elif id_clean in mp4_ids:
+                        ext = ".mp4"
+                    # 3. Во всех остальных случаях — .mov
+                    else:
+                        ext = ".mov"
+                    
                     xml_lines.append(f'  <item file="{xml_escape(user_path)}\\{id_clean}_{nm}{ext}" in="0.000" dur="{float(row["Dur"]):.3f}" />')
                 
                 xml_lines.append(f'  <item file="{xml_escape(user_path)}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="6.580" />')
@@ -94,7 +104,7 @@ if uploaded_file:
                 
                 zip_file.writestr(f"{time_filename}.slblock", "\r\n".join(xml_lines).encode('utf-16'))
 
-        st.success(f"✅ Архив для Global 24 готов!")
+        st.success(f"✅ Архив для Global 24 готов! (MP4 ролики: {', '.join(mp4_ids)})")
         st.download_button(f"📥 Скачать SLBlocks ({base_name})", zip_buffer.getvalue(), f"Global24_{base_name}.zip")
 
     except Exception as e:
