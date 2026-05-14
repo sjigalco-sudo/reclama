@@ -18,56 +18,67 @@ LOGO_PATH = "Global 24 Logo TV.png"
 def inject_custom_css():
     st.markdown("""
         <style>
-        /* Общий фон и шрифт */
+        /* Темная тема и шрифты */
         .main {
-            background-color: #0e1117;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0d1117;
         }
         
-        /* Заголовок страницы */
+        /* Заголовок */
         h1 {
-            color: #ffffff;
-            text-shadow: 2px 2px 4px #000000;
-            padding-bottom: 20px;
+            color: #e6edf3;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #30363d;
+            padding-bottom: 10px;
         }
 
-        /* Стиль боковой панели */
+        /* Боковая панель */
         section[data-testid="stSidebar"] {
             background-color: #161b22 !important;
             border-right: 1px solid #30363d;
         }
 
-        /* Карточки и блоки */
-        div[data-testid="stExpander"], .stFileUploader {
-            background-color: #1c2128;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 10px;
-        }
-
         /* Кнопки */
         .stButton>button {
             width: 100%;
-            border-radius: 20px;
-            border: 1px solid #58a6ff;
-            background-color: #238636;
-            color: white;
-            transition: 0.3s;
-        }
-        .stButton>button:hover {
-            background-color: #2ea043;
-            border-color: #ffffff;
-            transform: scale(1.02);
-        }
-
-        /* Радио-кнопки */
-        div[data-testid="stMarkdownContainer"] p {
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            background-color: #21262d;
+            color: #c9d1d9;
             font-weight: 600;
         }
-        
-        /* Успешные сообщения */
+        .stButton>button:hover {
+            border-color: #8b949e;
+            color: #ffffff;
+            background-color: #30363d;
+        }
+
+        /* Специфический стиль для кнопки СКАЧАТЬ (Download Button) */
+        .stDownloadButton>button {
+            width: 100%;
+            background-color: #238636 !important;
+            color: white !important;
+            border: 1px solid #2ea043 !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+        }
+        .stDownloadButton>button:hover {
+            background-color: #2ea043 !important;
+            border-color: #3fb950 !important;
+        }
+
+        /* Виджеты загрузки и раскрывающиеся списки */
+        div[data-testid="stExpander"], .stFileUploader {
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            background-color: #0d1117;
+        }
+
+        /* Успешное выполнение */
         .stAlert {
-            border-radius: 10px;
+            border: 1px solid #238636;
+            background-color: #04190b;
+            color: #3fb950;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -99,59 +110,56 @@ def format_time_filename(t_obj):
 def xml_escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-# --- ИНТЕРФЕЙС STREAMLIT ---
-st.set_page_config(page_title="Global 24 | Pro Generator", page_icon="🌐", layout="wide")
-inject_custom_css() # Применяем стили
+# --- ИНТЕРФЕЙС ---
+st.set_page_config(page_title="Global 24 | Generator", page_icon="📺", layout="wide")
+inject_custom_css()
 
 if 'auth_global' not in st.session_state:
     st.session_state['auth_global'] = False
 
 if not st.session_state['auth_global']:
-    # Окно логина тоже стилизовано
-    st.markdown("<h2 style='text-align: center;'>🔐 Система автоматизации Global 24</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #c9d1d9;'>🔐 Авторизация системы</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        pwd = st.text_input("Введите ключ доступа:", type="password")
-        if st.button("РАЗБЛОКИРОВАТЬ"):
+        pwd = st.text_input("Ключ доступа:", type="password")
+        if st.button("ВХОД"):
             if pwd == PASSWORD:
                 st.session_state['auth_global'] = True
                 st.rerun()
             else:
-                st.error("Доступ запрещен")
+                st.error("Ошибка доступа")
     st.stop()
 
-# --- ВЕРХНЯЯ ЧАСТЬ СТРАНИЦЫ ---
+# Логотип и Заголовок
 if os.path.exists(LOGO_PATH):
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.image(LOGO_PATH, use_container_width=True)
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c2: st.image(LOGO_PATH, use_container_width=True)
 
-st.markdown("<h1 style='text-align: center;'>🌐 GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР</h1>", unsafe_allow_html=True)
 
-# --- SIDEBAR ---
+# Сайдбар
 with st.sidebar:
-    st.markdown("### 🛠 УПРАВЛЕНИЕ")
-    ad_type = st.radio("ВЫБЕРИТЕ РЕЖИМ:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
+    st.markdown("### ⚙️ ПАРАМЕТРЫ")
+    ad_type = st.radio("Режим работы:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
     
     mp4_ids = []
     if "MD+SP" in ad_type:
-        with st.expander("🎥 Настройка форматов"):
-            st.write("Укажите ID через запятую для принудительного .mp4")
-            mp4_input = st.text_area("ID:", value="6856, 6857")
+        with st.expander("🎥 Форматы (.mp4)"):
+            mp4_input = st.text_area("ID через запятую:", value="6856, 6857")
             mp4_ids = [x.strip() for x in mp4_input.split(",") if x.strip()]
     
     st.divider()
-    st.markdown("### 📁 ФАЙЛ")
-    uploaded_file = st.file_uploader("Перетащите медиа-план сюда", type=["xls", "xlsx"])
+    st.markdown("### 📁 ЗАГРУЗКА")
+    uploaded_file = st.file_uploader("Медиа-план (XLSX)", type=["xls", "xlsx"])
     
-    if st.button("ВЫЙТИ ИЗ СИСТЕМЫ"):
+    if st.button("ВЫЙТИ"):
         st.session_state['auth_global'] = False
         st.rerun()
 
-# --- ЛОГИКА ОБРАБОТКИ ---
+# Логика обработки
 if uploaded_file:
     try:
-        with st.spinner('Генерация блоков... Пожалуйста, подождите.'):
+        with st.status("Выполняется генерация блоков...", expanded=True) as status:
             mode_topshop = "TopShop" in ad_type
             current_path = PATH_TOPSHOP if mode_topshop else PATH_MAIN
             
@@ -163,7 +171,6 @@ if uploaded_file:
                 if mode_topshop:
                     current_date_prefix = ""
                     current_block_items = []
-                    
                     for index, row in df_raw.iterrows():
                         val_col0 = str(row[0])
                         if any(day in val_col0 for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]):
@@ -192,10 +199,10 @@ if uploaded_file:
                                     xml_lines.append('</slblock>')
                                     zip_file.writestr(f_name, "\r\n".join(xml_lines).encode('utf-16'))
                                     current_block_items = []
-
+                            
                             id_clean = str(row[3]).strip()
                             nm = str(row[2]).strip()
-                            current_block_items.append({'time': t_obj, 'dur': float(row[4]), 'file': f"{id_clean}__{nm}.mp4"})
+                            current_block_items.append({'time': t_obj, 'dur': float(row[4]), 'file': f"{id_clean}____{nm}.mp4"})
 
                     if current_block_items:
                         start_time_str = format_time_filename(current_block_items[0]['time'])
@@ -210,11 +217,10 @@ if uploaded_file:
                         xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
                         xml_lines.append('</slblock>')
                         zip_file.writestr(f_name, "\r\n".join(xml_lines).encode('utf-16'))
-
                     zip_name = f"TOPSHOP {found_dates[0].split('.')[0]}-{found_dates[-1]}.zip" if found_dates else "TOPSHOP_Archive.zip"
 
                 else:
-                    # --- ЛОГИКА MD+SP ---
+                    # --- MD+SP ---
                     df = pd.read_excel(uploaded_file, skiprows=6)
                     df_res = df.iloc[:, [2, 6, 7, 9]].copy()
                     df_res.columns = ['Block_Time', 'Name', 'Dur', 'ID']
@@ -237,10 +243,17 @@ if uploaded_file:
                         xml_lines.append('</slblock>')
                         zip_file.writestr(f"{time_filename}.slblock", "\r\n".join(xml_lines).encode('utf-16'))
                     zip_name = f"MD_SP_Blocks_{os.path.splitext(uploaded_file.name)[0]}.zip"
+            
+            status.update(label="Генерация завершена успешно!", state="complete")
 
-            st.balloons() # Праздничный эффект при успехе!
-            st.success(f"🚀 ОБРАБОТКА ЗАВЕРШЕНА: {zip_name}")
-            st.download_button(f"📥 СКАЧАТЬ ГОТОВЫЙ АРХИВ", zip_buffer.getvalue(), zip_name)
+        st.success(f"📦 Файлы подготовлены: {zip_name}")
+        # Измененная кнопка
+        st.download_button(
+            label="📥 СКАЧАТЬ СФОРМИРОВАННЫЙ АРХИВ",
+            data=zip_buffer.getvalue(),
+            file_name=zip_name,
+            mime="application/zip"
+        )
 
     except Exception as e:
-        st.error(f"❌ Произошла ошибка при разборе файла: {e}")
+        st.error(f"Ошибка: {e}")
