@@ -7,7 +7,7 @@ import re
 from datetime import timedelta, datetime, time
 
 # --- КОНСТАНТЫ ---
-PASSWORD = "Global_Admin_2026"
+PASSWORD = "SJ"
 PATH_MAIN = r"I:\RECLAMA 2026"
 PATH_TOPSHOP = r"I:\TOPSHOP"
 TS_FILE = "teleshopping1.mp4"
