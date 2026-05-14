@@ -99,7 +99,7 @@ def xml_escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 # --- ИНТЕРФЕЙС ---
-st.set_page_config(page_title="Global 24 | Generator", page_icon="📺", layout="wide")
+st.set_page_config(page_title="SJ_Global 24 | Generator SLBlock", page_icon="📺", layout="wide")
 inject_custom_css()
 
 # Логотип и Главный заголовок
@@ -107,12 +107,12 @@ if os.path.exists(LOGO_PATH):
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2: st.image(LOGO_PATH, use_container_width=True)
 
-st.markdown("<h1 style='text-align: center;'>GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>GLOBAL 24: MD+SP+TOPSHOP SLBlock</h1>", unsafe_allow_html=True)
 
 # Боковая панель
 with st.sidebar:
     st.markdown("### ⚙️ ПАРАМЕТРЫ")
-    ad_type = st.radio("Режим работы:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
+    ad_type = st.radio("Режим работы:", ["MD+SP", "TopShop"])
     
     mp4_ids = []
     if "MD+SP" in ad_type:
