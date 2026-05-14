@@ -6,7 +6,7 @@ import os
 from datetime import timedelta, datetime, time
 
 # Пароль для Global 24
-PASSWORD = "Global_Admin_2026"
+PASSWORD = "SJ_Admin"
 
 st.set_page_config(page_title="Global 24 | Generator", page_icon="🌐", layout="wide")
 
