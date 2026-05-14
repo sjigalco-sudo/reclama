@@ -18,7 +18,12 @@ LOGO_PATH = "Global 24 Logo TV.png"
 def inject_custom_css():
     st.markdown("""
         <style>
-        .main { background-color: #0d1117; }
+        /* Темная тема и шрифты */
+        .main {
+            background-color: #0d1117;
+        }
+        
+        /* Заголовок */
         h1 {
             color: #e6edf3;
             font-weight: 700;
@@ -26,10 +31,14 @@ def inject_custom_css():
             border-bottom: 2px solid #30363d;
             padding-bottom: 10px;
         }
+
+        /* Боковая панель */
         section[data-testid="stSidebar"] {
             background-color: #161b22 !important;
             border-right: 1px solid #30363d;
         }
+
+        /* Обычные кнопки */
         .stButton>button {
             width: 100%;
             border-radius: 6px;
@@ -43,6 +52,8 @@ def inject_custom_css():
             color: #ffffff;
             background-color: #30363d;
         }
+
+        /* Кнопка СКАЧАТЬ (выделенная) */
         .stDownloadButton>button {
             width: 100%;
             background-color: #238636 !important;
@@ -52,16 +63,26 @@ def inject_custom_css():
             text-transform: uppercase;
             margin-top: 20px;
         }
+        .stDownloadButton>button:hover {
+            background-color: #2ea043 !important;
+            border-color: #3fb950 !important;
+        }
+
+        /* Виджеты загрузки и экспандеры */
         div[data-testid="stExpander"], .stFileUploader {
             border: 1px solid #30363d;
             border-radius: 8px;
             background-color: #0d1117;
         }
+
+        /* Успешное выполнение */
         .stAlert {
             border: 1px solid #238636;
             background-color: #04190b;
             color: #3fb950;
         }
+        
+        /* Таблицы */
         .stTable {
             background-color: #161b22;
             border-radius: 8px;
@@ -119,23 +140,28 @@ if not st.session_state['auth_global']:
                 st.error("Ошибка доступа")
     st.stop()
 
+# Логотип и Главный заголовок
 if os.path.exists(LOGO_PATH):
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2: st.image(LOGO_PATH, use_container_width=True)
 
 st.markdown("<h1 style='text-align: center;'>GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР</h1>", unsafe_allow_html=True)
 
+# Боковая панель
 with st.sidebar:
     st.markdown("### ⚙️ ПАРАМЕТРЫ")
     ad_type = st.radio("Режим работы:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
+    
     mp4_ids = []
     if "MD+SP" in ad_type:
         with st.expander("🎥 Форматы (.mp4)"):
-            mp4_input = st.text_area("ID через запятую:", value="6856, 6857")
-            mp4_ids = [x.strip() for x in mp4_input.split(",") if x.strip()]
+            mp4_ids_input = st.text_area("ID через запятую:", value="6856, 6857")
+            mp4_ids = [x.strip() for x in mp4_ids_input.split(",") if x.strip()]
+    
     st.divider()
     st.markdown("### 📁 ЗАГРУЗКА")
     uploaded_file = st.file_uploader("Медиа-план (XLSX)", type=["xls", "xlsx"])
+    
     if st.button("ВЫЙТИ"):
         st.session_state['auth_global'] = False
         st.rerun()
@@ -143,7 +169,7 @@ with st.sidebar:
 # --- ЛОГИКА ОБРАБОТКИ ---
 if uploaded_file:
     try:
-        summary_data = [] 
+        summary_data = [] # Для таблицы отчета
         
         with st.status("Выполняется генерация блоков...", expanded=True) as status:
             mode_topshop = "TopShop" in ad_type
@@ -174,6 +200,8 @@ if uploaded_file:
                                 if (dt2 - dt1).total_seconds() > 360:
                                     start_t = format_time_filename(current_block_items[0]['time'])
                                     total_dur = TS_DUR + sum(item['dur'] for item in current_block_items) + TS_DUR
+                                    
+                                    # Добавление в отчет
                                     summary_data.append([start_t, format_dur(total_dur), len(current_block_items)])
                                     
                                     f_name = f"{current_date_prefix}_{start_t.replace(':', '-')}.slblock"
@@ -219,7 +247,9 @@ if uploaded_file:
                         time_filename = format_time_filename(block_time)
                         pub_num = ((i - 1) % 5) + 1
                         total_dur = 5.980 + items['Dur'].sum() + 6.580
+                        
                         summary_data.append([time_filename, format_dur(total_dur), len(items)])
+                        
                         xml_lines = [
                             f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2',
                             f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />'
@@ -236,12 +266,14 @@ if uploaded_file:
             
             status.update(label="Генерация завершена успешно!", state="complete")
 
-        # Отчет
+        # --- СКРЫТЫЙ ОТЧЕТ (EXPANDER) ---
         if summary_data:
-            st.markdown("### 📊 ОТЧЕТ ПО СФОРМИРОВАННЫМ БЛОКАМ")
-            df_report = pd.DataFrame(summary_data, columns=["Время выхода", "Длительность блока", "Кол-во файлов"])
-            st.table(df_report)
+            with st.expander("📊 ПОСМОТРЕТЬ ОТЧЕТ ПО СФОРМИРОВАННЫМ БЛОКАМ", expanded=False):
+                df_report = pd.DataFrame(summary_data, columns=["Время выхода", "Длительность блока", "Кол-во файлов"])
+                st.table(df_report)
 
+        # Сообщение об успехе и Кнопка скачивания
+        st.success(f"📦 Файлы подготовлены: {zip_name}")
         st.download_button(
             label="📥 СКАЧАТЬ СФОРМИРОВАННЫЙ АРХИВ",
             data=zip_buffer.getvalue(),
@@ -250,4 +282,4 @@ if uploaded_file:
         )
 
     except Exception as e:
-        st.error(f"Ошибка: {e}")
+        st.error(f"Произошла ошибка при обработке: {e}")
