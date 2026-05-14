@@ -12,10 +12,10 @@ PATH_MAIN = r"I:\RECLAMA 2026"
 PATH_TOPSHOP = r"I:\TOPSHOP"
 TS_FILE = "teleshopping1.mp4"
 TS_DUR = 7.600
+LOGO_PATH = "Global 24 Logo TV.png"  # Имя вашего файла логотипа
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def extract_date_info(text):
-    """Извлекает дату и цифры из строки типа 'Monday, 11.5.2026'"""
     if pd.isna(text): return None, ""
     match = re.search(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', str(text))
     if match:
@@ -26,28 +26,23 @@ def extract_date_info(text):
     return None, ""
 
 def to_time_obj(val):
-    """Преобразует значение из Excel в объект времени"""
-    if isinstance(val, (datetime, time)):
-        return val
+    if isinstance(val, (datetime, time)): return val
     if isinstance(val, str):
         val = val.strip()
         for fmt in ("%H:%M:%S", "%H:%M"):
-            try:
-                return datetime.strptime(val, fmt).time()
-            except ValueError:
-                continue
+            try: return datetime.strptime(val, fmt).time()
+            except ValueError: continue
     return None
 
 def format_time_filename(t_obj):
-    if hasattr(t_obj, 'strftime'):
-        return t_obj.strftime('%H-%M')
+    if hasattr(t_obj, 'strftime'): return t_obj.strftime('%H-%M')
     return str(t_obj)[:5].replace(':', '-')
 
 def xml_escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 # --- ИНТЕРФЕЙС STREAMLIT ---
-st.set_page_config(page_title="Global 24 | Multi-Generator", page_icon="🌐", layout="wide")
+st.set_page_config(page_title="Global 24 | Generator", page_icon="🌐", layout="wide")
 
 if 'auth_global' not in st.session_state:
     st.session_state['auth_global'] = False
@@ -63,27 +58,37 @@ if not st.session_state['auth_global']:
             st.error("Неверный пароль")
     st.stop()
 
+# --- ВСТАВКА ЛОГОТИПА ---
+# Проверяем наличие файла, чтобы скрипт не упал без картинки
+if os.path.exists(LOGO_PATH):
+    st.sidebar.image(LOGO_PATH, use_container_width=True)
+else:
+    st.sidebar.warning("⚠️ Файл логотипа не найден")
+
 st.title("🌐 GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР")
 
 with st.sidebar:
     st.header("⚙️ Настройки")
-    ad_type = st.radio("Тип рекламы:", ["Основная (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
+    ad_type = st.radio("Тип рекламы:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
+    
+    mp4_ids = []
+    if "MD+SP" in ad_type:
+        with st.expander("📁 Настройки форматов (MP4)"):
+            st.info("По умолчанию .mov. Впишите ID через запятую для .mp4")
+            mp4_input = st.text_area("ID для .mp4:", value="6856, 6857")
+            mp4_ids = [x.strip() for x in mp4_input.split(",") if x.strip()]
     
     st.divider()
-    st.subheader("📁 Формат MP4 (для Основной)")
-    mp4_input = st.text_area("ID через запятую:", value="6856, 6857")
-    mp4_ids = [x.strip() for x in mp4_input.split(",") if x.strip()]
-    
     uploaded_file = st.file_uploader("Загрузить медиа-план", type=["xls", "xlsx"])
     
-    if st.button("Выход"):
+    if st.button("Выйти"):
         st.session_state['auth_global'] = False
         st.rerun()
 
 # --- ЛОГИКА ОБРАБОТКИ ---
 if uploaded_file:
     try:
-        mode_topshop = True if ad_type == "TopShop (I:\TOPSHOP)" else False
+        mode_topshop = "TopShop" in ad_type
         current_path = PATH_TOPSHOP if mode_topshop else PATH_MAIN
         
         df_raw = pd.read_excel(uploaded_file, header=None)
@@ -97,8 +102,6 @@ if uploaded_file:
                 
                 for index, row in df_raw.iterrows():
                     val_col0 = str(row[0])
-                    
-                    # 1. Ловим дату
                     if any(day in val_col0 for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]):
                         disp_date, clean_digits = extract_date_info(val_col0)
                         if disp_date:
@@ -106,22 +109,14 @@ if uploaded_file:
                             current_date_prefix = clean_digits
                         continue
                     
-                    # 2. Ловим данные ролика (время в 1, ID в 3)
                     if pd.notna(row[1]) and (":" in str(row[1])) and pd.notna(row[3]):
                         t_obj = to_time_obj(row[1])
-                        
-                        # Если уже есть ролики в очереди — проверяем разрыв времени
                         if current_block_items and t_obj:
-                            last_time = current_block_items[-1]['time']
-                            dt1 = datetime.combine(datetime.today(), last_time)
+                            dt1 = datetime.combine(datetime.today(), current_block_items[-1]['time'])
                             dt2 = datetime.combine(datetime.today(), t_obj)
-                            
-                            # Если разрыв больше 6 минут (напр. 9:10 -> 14:30) — записываем старый блок
                             if (dt2 - dt1).total_seconds() > 360:
                                 start_time_str = format_time_filename(current_block_items[0]['time'])
                                 f_name = f"{current_date_prefix}_{start_time_str}.slblock"
-                                
-                                # Генерация XML
                                 total_dur = TS_DUR + sum(item['dur'] for item in current_block_items) + TS_DUR
                                 xml_lines = [f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2']
                                 xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
@@ -129,20 +124,13 @@ if uploaded_file:
                                     xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{item["file"]}" in="0.000" dur="{item["dur"]:.3f}" />')
                                 xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
                                 xml_lines.append('</slblock>')
-                                
                                 zip_file.writestr(f_name, "\r\n".join(xml_lines).encode('utf-16'))
                                 current_block_items = []
 
-                        # Добавляем ролик в текущую группу
                         id_clean = str(row[3]).strip()
                         nm = str(row[2]).strip()
-                        current_block_items.append({
-                            'time': t_obj,
-                            'dur': float(row[4]),
-                            'file': f"{id_clean}__{nm}.mp4"
-                        })
+                        current_block_items.append({'time': t_obj, 'dur': float(row[4]), 'file': f"{id_clean}__{nm}.mp4"})
 
-                # Записываем последний блок в файле
                 if current_block_items:
                     start_time_str = format_time_filename(current_block_items[0]['time'])
                     f_name = f"{current_date_prefix}_{start_time_str}.slblock"
@@ -155,41 +143,33 @@ if uploaded_file:
                     xml_lines.append('</slblock>')
                     zip_file.writestr(f_name, "\r\n".join(xml_lines).encode('utf-16'))
 
-                # Имя архива: TOPSHOP 11-17.05.2026.zip
-                if found_dates:
-                    zip_name = f"TOPSHOP {found_dates[0].split('.')[0]}-{found_dates[-1]}.zip"
-                else:
-                    zip_name = "TOPSHOP_Archive.zip"
+                zip_name = f"TOPSHOP {found_dates[0].split('.')[0]}-{found_dates[-1]}.zip" if found_dates else "TOPSHOP_Archive.zip"
 
             else:
-                # --- ЛОГИКА GLOBAL 24 (ОСНОВНАЯ) ---
+                # --- ЛОГИКА MD+SP ---
                 df = pd.read_excel(uploaded_file, skiprows=6)
                 df_res = df.iloc[:, [2, 6, 7, 9]].copy()
                 df_res.columns = ['Block_Time', 'Name', 'Dur', 'ID']
                 df_res['Block_Time'] = df_res['Block_Time'].ffill()
                 df_res = df_res.dropna(subset=['ID'])
-                
-                grouped = df_res.groupby('Block_Time', sort=False)
-                for i, (block_time, items) in enumerate(grouped, 1):
+                for i, (block_time, items) in enumerate(df_res.groupby('Block_Time', sort=False), 1):
                     time_filename = format_time_filename(block_time)
                     pub_num = ((i - 1) % 5) + 1
                     total_dur = 5.980 + items['Dur'].sum() + 6.580
-                    
-                    xml_lines = [f'<slblock Source=\"list\" Type=\"accurate\" Sec=\"{total_dur:.3f}\" Include_subfolders=\"no\" Path=\"\" cptn_start_file=\"\" cptn_end_file=\"\" cptn_between_file=\"\" cptn_start_en=\"no\" cptn_end_en=\"no\" cptn_between_en=\"no\">version 2']
-                    xml_lines.append(f'  <item file=\"{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} IN.mp4\" in=\"0.000\" dur=\"5.980\" />')
+                    xml_lines = [f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2']
+                    xml_lines.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />')
                     for _, row in items.iterrows():
                         id_c = str(row['ID']).split(".")[0]
                         nm_c = str(row['Name']).strip()
                         ext = ".mp4" if id_c in mp4_ids else ".mov"
-                        xml_lines.append(f'  <item file=\"{xml_escape(PATH_MAIN)}\\{id_c}_{nm_c}{ext}\" in=\"0.000\" dur=\"{float(row["Dur"]):.3f}\" />')
-                    xml_lines.append(f'  <item file=\"{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} OUT.mp4\" in=\"0.000\" dur=\"6.580\" />')
+                        xml_lines.append(f'  <item file="{xml_escape(PATH_MAIN)}\\{id_c}_{nm_c}{ext}" in="0.000" dur="{float(row["Dur"]):.3f}" />')
+                    xml_lines.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="6.580" />')
                     xml_lines.append('</slblock>')
                     zip_file.writestr(f"{time_filename}.slblock", "\r\n".join(xml_lines).encode('utf-16'))
-                
-                zip_name = f"Global24_Blocks_{os.path.splitext(uploaded_file.name)[0]}.zip"
+                zip_name = f"MD_SP_Blocks_{os.path.splitext(uploaded_file.name)[0]}.zip"
 
-        st.success(f"✅ Готово! Сформирован архив: {zip_name}")
+        st.success(f"✅ Готово! Архив: {zip_name}")
         st.download_button(f"📥 Скачать {zip_name}", zip_buffer.getvalue(), zip_name)
 
     except Exception as e:
-        st.error(f"Произошла ошибка: {e}")
+        st.error(f"Ошибка: {e}")
