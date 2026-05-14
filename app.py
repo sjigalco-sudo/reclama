@@ -12,7 +12,7 @@ PATH_MAIN = r"I:\RECLAMA 2026"
 PATH_TOPSHOP = r"I:\TOPSHOP"
 TS_FILE = "teleshopping1.mp4"
 TS_DUR = 7.600
-LOGO_PATH = "Global 24 Logo TV.png"  # Имя вашего файла логотипа
+LOGO_PATH = "Global 24 Logo TV.png"
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def extract_date_info(text):
@@ -58,16 +58,20 @@ if not st.session_state['auth_global']:
             st.error("Неверный пароль")
     st.stop()
 
-# --- ВСТАВКА ЛОГОТИПА ---
-# Проверяем наличие файла, чтобы скрипт не упал без картинки
+# --- ВЕРХНЯЯ ЧАСТЬ СТРАНИЦЫ (ЛОГО + ЗАГОЛОВОК) ---
 if os.path.exists(LOGO_PATH):
-    st.sidebar.image(LOGO_PATH, use_container_width=True)
-else:
-    st.sidebar.warning("⚠️ Файл логотипа не найден")
+    # Размещаем логотип по центру над заголовком
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image(LOGO_PATH, use_container_width=True)
 
-st.title("🌐 GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР")
+st.markdown("<h1 style='text-align: center;'>🌐 GLOBAL 24: УНИВЕРСАЛЬНЫЙ ГЕНЕРАТОР</h1>", unsafe_allow_ Perr=True)
 
+# --- SIDEBAR ---
 with st.sidebar:
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, use_container_width=True)
+    
     st.header("⚙️ Настройки")
     ad_type = st.radio("Тип рекламы:", ["MD+SP (I:\RECLAMA 2026)", "TopShop (I:\TOPSHOP)"])
     
@@ -118,8 +122,10 @@ if uploaded_file:
                                 start_time_str = format_time_filename(current_block_items[0]['time'])
                                 f_name = f"{current_date_prefix}_{start_time_str}.slblock"
                                 total_dur = TS_DUR + sum(item['dur'] for item in current_block_items) + TS_DUR
-                                xml_lines = [f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2']
-                                xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
+                                xml_lines = [
+                                    f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2',
+                                    f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />'
+                                ]
                                 for item in current_block_items:
                                     xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{item["file"]}" in="0.000" dur="{item["dur"]:.3f}" />')
                                 xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
@@ -135,8 +141,10 @@ if uploaded_file:
                     start_time_str = format_time_filename(current_block_items[0]['time'])
                     f_name = f"{current_date_prefix}_{start_time_str}.slblock"
                     total_dur = TS_DUR + sum(item['dur'] for item in current_block_items) + TS_DUR
-                    xml_lines = [f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2']
-                    xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
+                    xml_lines = [
+                        f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2',
+                        f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />'
+                    ]
                     for item in current_block_items:
                         xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{item["file"]}" in="0.000" dur="{item["dur"]:.3f}" />')
                     xml_lines.append(f'  <item file="{xml_escape(current_path)}\\{TS_FILE}" in="0.000" dur="{TS_DUR:.3f}" />')
@@ -156,8 +164,10 @@ if uploaded_file:
                     time_filename = format_time_filename(block_time)
                     pub_num = ((i - 1) % 5) + 1
                     total_dur = 5.980 + items['Dur'].sum() + 6.580
-                    xml_lines = [f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2']
-                    xml_lines.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />')
+                    xml_lines = [
+                        f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="" cptn_start_file="" cptn_end_file="" cptn_between_file="" cptn_start_en="no" cptn_end_en="no" cptn_between_en="no">version 2',
+                        f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="5.980" />'
+                    ]
                     for _, row in items.iterrows():
                         id_c = str(row['ID']).split(".")[0]
                         nm_c = str(row['Name']).strip()
