@@ -9,10 +9,14 @@ from datetime import datetime, time
 # --- КОНСТАНТЫ ---
 PATH_MAIN = r"I:\RECLAMA 2026"
 PATH_TOPSHOP = r"I:\TOPSHOP"
-TS_TARGET_DUR = 915.0  # 15:15 в секундах
+TS_TARGET_DUR = 915.0 
 LOGO_PATH = "Global 24 Logo TV.png"
 
-# --- КАСТОМНЫЙ ДИЗАЙН ---
+# Длительности отбивок
+DUR_IN = 5.980
+DUR_OUT_STANDARD = 6.580
+DUR_OUT_PUB4 = 6.560  # 4-я отбивка короче
+
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -51,7 +55,6 @@ def format_dur(sec):
 def xml_escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-# --- ИНТЕРФЕЙС ---
 st.set_page_config(page_title="Global 24 | Generator", page_icon="📺", layout="wide")
 inject_custom_css()
 
@@ -74,11 +77,10 @@ with st.sidebar:
 
 if uploaded_file:
     try:
-        # Получаем чистое имя исходного файла
         source_name = os.path.splitext(uploaded_file.name)[0]
         summary_data = [] 
         
-        with st.status("Генерация архива...", expanded=True) as status:
+        with st.status("Генерация...", expanded=True) as status:
             mode_topshop = "TopShop" in ad_type
             current_path = PATH_TOPSHOP if mode_topshop else PATH_MAIN
             df_raw = pd.read_excel(uploaded_file, header=None)
@@ -86,15 +88,14 @@ if uploaded_file:
             
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
                 if mode_topshop:
+                    # Логика TopShop (без изменений, там нет отбивок)
                     all_rows = []
                     curr_d_disp, curr_d_clean = "00.00.0000", "00000000"
-                    
                     for _, row in df_raw.iterrows():
                         d_disp, d_clean = extract_date_info(str(row[0]))
                         if d_disp:
                             curr_d_disp, curr_d_clean = d_disp, d_clean
                             continue
-                        
                         t_obj = to_time_obj(row[1])
                         if t_obj and pd.notna(row[3]):
                             all_rows.append({
@@ -103,52 +104,54 @@ if uploaded_file:
                                 'id': str(row[3]).strip(),
                                 'name': str(row[2]).strip(), 'dur': float(row[4]) if pd.notna(row[4]) else 0.0
                             })
-
                     if all_rows:
                         df_ts = pd.DataFrame(all_rows)
                         for (d_clean, d_disp, hour), group in df_ts.groupby(['d_clean', 'd_disp', 'hour'], sort=False):
                             t_start = format_time_filename(group.iloc[0]['time'])
                             total_dur = group['dur'].sum()
                             summary_data.append([f"{d_disp} {t_start.replace('-', ':')}", format_dur(total_dur), len(group)])
-                            
                             xml = [f'<slblock Source="list" Type="accurate" Sec="{total_dur:.3f}" Include_subfolders="no" Path="">version 2']
                             for _, r in group.iterrows():
                                 xml.append(f'  <item file="{xml_escape(current_path)}\\{r["id"]}____{r["name"]}.mp4" in="0.000" dur="{r["dur"]:.3f}" />')
                             xml.append('</slblock>')
                             zip_file.writestr(f"{d_clean}_{t_start}.slblock", "\r\n".join(xml).encode('utf-16'))
-                    
                     zip_name = f"TOPSHOP {source_name}.zip"
 
                 else:
+                    # --- RECLAMA: MD+SP (С УЧЕТОМ РАЗНОЙ ДЛИНЫ 4-Й ОТБИВКИ) ---
                     df = pd.read_excel(uploaded_file, skiprows=6)
                     df_res = df.iloc[:, [2, 6, 7, 9]].copy()
                     df_res.columns = ['Time', 'Name', 'Dur', 'ID']
                     df_res['Time'] = df_res['Time'].ffill()
                     df_res = df_res.dropna(subset=['ID'])
                     for i, (bt, items) in enumerate(df_res.groupby('Time', sort=False), 1):
-                        t_f, p_n = format_time_filename(bt), ((i - 1) % 5) + 1
-                        total = 5.980 + items['Dur'].sum() + 6.580
+                        t_f = format_time_filename(bt)
+                        pub_num = ((i - 1) % 5) + 1
+                        
+                        # Определяем длину OUT для текущего номера отбивки
+                        current_out_dur = DUR_OUT_PUB4 if pub_num == 4 else DUR_OUT_STANDARD
+                        
+                        total = DUR_IN + items['Dur'].sum() + current_out_dur
                         summary_data.append([t_f.replace('-', ':'), format_dur(total), len(items)])
                         
                         xml = [f'<slblock Source="list" Type="accurate" Sec="{total:.3f}" Include_subfolders="no" Path="">version 2']
-                        xml.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {p_n} IN.mp4" in="0.000" dur="5.980" />')
+                        xml.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} IN.mp4" in="0.000" dur="{DUR_IN:.3f}" />')
                         for _, r in items.iterrows():
                             id_c = str(r['ID']).split(".")[0]
                             ext = ".mp4" if id_c in mp4_ids else ".mov"
                             xml.append(f'  <item file="{xml_escape(PATH_MAIN)}\\{id_c}_{str(r["Name"]).strip()}{ext}" in="0.000" dur="{float(r["Dur"]):.3f}" />')
-                        xml.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {p_n} OUT.mp4" in="0.000" dur="6.580" />')
+                        xml.append(f'  <item file="{xml_escape(PATH_MAIN)}\\PIBLICITATE {pub_num} OUT.mp4" in="0.000" dur="{current_out_dur:.3f}" />')
                         xml.append('</slblock>')
                         zip_file.writestr(f"{t_f}.slblock", "\r\n".join(xml).encode('utf-16'))
-                    
                     zip_name = f"RECLAMA {source_name}.zip"
 
             status.update(label="Готово!", state="complete")
 
         if summary_data:
-            with st.expander("📊 ДЕТАЛИЗАЦИЯ БЛОКОВ", expanded=True):
-                st.table(pd.DataFrame(summary_data, columns=["Блок", "Длительность", "Количество роликов"]))
+            with st.expander("📊 ДЕТАЛИЗАЦИЯ", expanded=True):
+                st.table(pd.DataFrame(summary_data, columns=["Блок/Слот", "Длительность", "Роликов"]))
 
         st.download_button(label=f"📥 СКАЧАТЬ {zip_name}", data=zip_buffer.getvalue(), file_name=zip_name, mime="application/zip")
 
     except Exception as e:
-        st.error(f"Произошла ошибка при обработке файла: {e}")
+        st.error(f"Ошибка: {e}")
